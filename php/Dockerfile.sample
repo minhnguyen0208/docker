@@ -1,0 +1,45 @@
+# ---- base ----
+FROM php:8.3-fpm-alpine AS base
+
+RUN set -eux; \
+    # Runtime libs\
+    apk add --no-cache \
+    bash git curl \
+    icu-libs libzip zlib \
+    libpng freetype libjpeg-turbo \
+    oniguruma libxml2 \
+    openssl; \
+    # Build deps for docker-php-ext-* and pecl \
+    apk add --no-cache --virtual .build-deps \
+    $PHPIZE_DEPS build-base autoconf \
+    icu-dev libzip-dev zlib-dev \
+    libpng-dev freetype-dev libjpeg-turbo-dev \
+    oniguruma-dev libxml2-dev \
+    openssl-dev; \
+    # Configure/compile PHP extensions\
+    docker-php-ext-configure gd --with-freetype --with-jpeg; \
+    docker-php-ext-install -j"$(nproc)" \
+    pdo pdo_mysql mbstring zip intl xml gd ftp; \
+    # PECL redis \
+    pecl install -o -f redis && docker-php-ext-enable redis;         \
+    # Clean up\
+    apk del .build-deps
+
+
+WORKDIR /var/www/html
+ENV COMPOSER_ALLOW_SUPERUSER=1
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+# ---- dev ----
+FROM base AS dev
+ARG WWWUSER=1000
+ARG WWWGROUP=1000
+RUN addgroup -g $WWWGROUP app && adduser -G app -g app -s /bin/sh -D -u $WWWUSER app
+USER app
+CMD ["php-fpm", "-R"]
+
+# ---- app (prod skeleton, optional) ----
+FROM base AS app
+COPY . .
+USER www-data
+CMD ["php-fpm", "-R"]

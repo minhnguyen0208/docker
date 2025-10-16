@@ -1,0 +1,57 @@
+# HTTP: redirect everything to HTTPS
+server {
+    listen 80;
+    server_name ${SERVER_NAME:-localhost};
+    return 301 https://$host$request_uri;
+}
+
+# HTTPS: Laravel app
+server {
+    listen 443 ssl http2;
+    server_name ${SERVER_NAME:-localhost};
+
+    ssl_certificate     ${SSL_CERT};
+    ssl_certificate_key ${SSL_CERT_KEY};
+
+    # Strong-ish defaults (tweak as you like)
+    ssl_session_timeout 1d;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    root /var/www/html/public;
+    index index.php index.html;
+
+    # Laravel front controller
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    # PHP-FPM
+    location ~ \.php$ {
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        fastcgi_param DOCUMENT_ROOT $realpath_root;
+        fastcgi_read_timeout 300;
+        fastcgi_pass app:9000;
+    }
+
+    # If you really need /public/localization.js served by Laravel
+    location = /public/localization.js {
+        rewrite ^ /index.php?$query_string last;
+    }
+
+    # Static files; fall back to Laravel if missing
+    location ~* \.(?:css|js|mjs|png|jpg|jpeg|gif|svg|webp|ico|woff2?)$ {
+        try_files $uri @laravel;
+        expires 7d;
+        access_log off;
+    }
+
+    location @laravel {
+        rewrite ^ /index.php?$query_string last;
+    }
+
+    # Help Laravel detect HTTPS behind proxy (harmless here too)
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+}
