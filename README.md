@@ -25,3 +25,13 @@ Using /etc/nginx/templates/default.conf.template with SERVER_NAME env.
 - Nginx proxies PHP to 'app:9000' (compose service name)
 - Exception for /public/localization.js is included
 - Static files fall back to Laravel if missing
+
+## Commands
+- make sh (sh into app container)
+- make up (bring up containers)
+- make logs (tail logs)
+- make down (bring down containers)
+- make init (init)
+- make fe (bring up frontend container)
+- make worker (run worker / scheduler)
+

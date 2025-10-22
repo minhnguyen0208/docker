@@ -10,7 +10,7 @@
 		docker compose logs -f web app node
 
     sh:
-		docker compose exec app bash
+		docker compose exec -u root -w /var/www/html app sh
 
     init:
 		docker compose up -d --build
